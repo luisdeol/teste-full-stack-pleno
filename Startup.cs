@@ -31,9 +31,12 @@ namespace TesteFullStackPleno
                 options.MinimumSameSitePolicy = SameSiteMode.None;
             });
 
+            services.AddDbContext<TesteContext>(options => options.UseSqlServer(Configuration.GetConnectionString("TesteContext")));
 
             services
-                .AddAutoMapper(typeof(Startup));
+                .AddAutoMapper(typeof(Startup))
+                .AddRepositories()
+                .AddMessageQueueService();
 
             services.AddHostedService<RabbitMqListener>();
 

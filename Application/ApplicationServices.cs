@@ -1,16 +1,22 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
+using TesteFullStackPleno.Core.Repositories;
+using TesteFullStackPleno.Infrastructure.Persistence.Repositories;
 using TesteFullStackPleno.Infrastructure.Services;
 
 namespace TesteFullStackPleno.Application
 {
     public static class ApplicationServices
     {
-        public static IServiceCollection AddRabbitMq(this IServiceCollection services, IConfiguration configuration)
+        public static IServiceCollection AddMessageQueueService(this IServiceCollection services)
         {
-            var rabbitMqService = new RabbitMqService();
+            services.AddScoped<IMessageQueueService, RabbitMqService>();
 
-            rabbitMqService.Consume();
+            return services;
+        }
+
+        public static IServiceCollection AddRepositories(this IServiceCollection services)
+        {
+            services.AddSingleton<IComportamentoRepository, ComportamentoRepository>();
 
             return services;
         }

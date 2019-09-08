@@ -3,6 +3,5 @@
     public interface IMessageQueueService
     {
         void Send(byte[] message);
-        void Consume();
     }
 }

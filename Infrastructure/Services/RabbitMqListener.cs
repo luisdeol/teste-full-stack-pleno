@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 using RabbitMQ.Client;
@@ -8,30 +7,23 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using TesteFullStackPleno.Core.Entities;
-using TesteFullStackPleno.Infrastructure.Persistence;
+using TesteFullStackPleno.Core.Repositories;
 
 namespace TesteFullStackPleno.Infrastructure.Services
 {
-    public class RabbitMqListener : IHostedService
+    public class RabbitMqListener : BackgroundService
     {
         private readonly IConnection _connection;
         private readonly IModel _channel;
-        private readonly IServiceScopeFactory _scopeFactory;
-        private readonly string ConnectionString = "Data source=.\\SQLEXPRESS;Initial Catalog=comportamentosDb;Integrated Security=SSPI";
+        private readonly IServiceScopeFactory _serviceScopeFactory;
 
-        public RabbitMqListener(IServiceScopeFactory scopeFactory)
+        public RabbitMqListener(IServiceScopeFactory serviceScopeFactory)
         {
             var factory = new ConnectionFactory() { HostName = "localhost" };
 
             _connection = factory.CreateConnection();
             _channel = _connection.CreateModel();
-            _scopeFactory = scopeFactory;
-        }
-
-        public Task StartAsync(CancellationToken cancellationToken)
-        {
-            Listen();
-            return Task.CompletedTask;
+            _serviceScopeFactory = serviceScopeFactory;
         }
 
         private void Listen()
@@ -50,25 +42,38 @@ namespace TesteFullStackPleno.Infrastructure.Services
                 var message = Encoding.UTF8.GetString(body);
                 var comportamento = JsonConvert.DeserializeObject<Comportamento>(message);
 
-                var optionsBuilder = new DbContextOptionsBuilder<TesteContext>();
-                optionsBuilder.UseSqlServer(ConnectionString);
-
-                using (var context = new TesteContext(optionsBuilder.Options))
-                {
-                    context.Comportamentos.Add(comportamento);
-                    context.SaveChanges();
-                }
+                WriteToSql(comportamento);
+                WriteToFile(comportamento);
             };
 
             _channel.BasicConsume(queue: "comportamento",
                                     autoAck: true,
                                     consumer: consumer);
-           
         }
 
-        public Task StopAsync(CancellationToken cancellationToken)
+        private void WriteToFile(Comportamento comportamento)
+        {
+            CsvWriter.Write(comportamento);
+        }
+
+        private void WriteToSql(Comportamento comportamento)
+        {
+            using (var scope = _serviceScopeFactory.CreateScope())
+            {
+                var repository = scope.ServiceProvider.GetRequiredService<IComportamentoRepository>();
+
+                repository.Add(comportamento);
+            }
+        }
+        public override Task StopAsync(CancellationToken cancellationToken)
         {
             _connection.Close();
+            return Task.CompletedTask;
+        }
+
+        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            Listen();
             return Task.CompletedTask;
         }
     }
